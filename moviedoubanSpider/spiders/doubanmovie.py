@@ -71,7 +71,7 @@ class DoubanmovieSpider(scrapy.Spider):
                 # 评价人的姓名
                 people = evaluate.xpath(".//span[@class='comment-info']/a/text()")
                 # 评级时间
-                time = str(evaluate.xpath(".//span[@class='comment-time ']/text()")).replace("\n", "").strip()
+                time = str(evaluate.xpath(".//span[@class='comment-time ']/text()")[0]).replace("\\n", "").strip()
                 # 评价内容
                 content = evaluate.xpath(".//span[@class='short']/text()")
                 shortReviewMap['people'] = people
