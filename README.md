@@ -8,4 +8,7 @@
                 三级：获取电影的短评列表(拼接下一页的url+requests循环分页获取)
                     yield->MongoDB存储       
                     
+使用到的插件:
+    fake_useragent 随机useragent
+
 本人博客地址:https://blog.csdn.net/u013600907

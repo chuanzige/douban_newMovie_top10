@@ -11,6 +11,9 @@ class DoubanmovieSpider(scrapy.Spider):
     allowed_domains = ['movie.douban.com']
     # 开始采集的网站
     start_urls = ['https://movie.douban.com/chart/']
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36'
+    }
 
     # 解析响应的数据，可以理解为一个http请求的的response
     # 一级信息->电影简介
@@ -44,41 +47,98 @@ class DoubanmovieSpider(scrapy.Spider):
         data['movieDetail'] = movieDetail
         # 短评列表后缀url
         suffixUrl = response.xpath("//div[@id='hot-comments']/a/@href").extract_first()
+        longUrl = response.xpath("//section[@id='reviews-wrapper']/p/a/@href").extract_first()
         # 短评列表完整url
         shortReviewUrl = data['linkUrl'] + suffixUrl
-        yield scrapy.Request(url=shortReviewUrl, callback=self.shortReviewFor, meta={'data': data})
+        # 影评列表完整url
+        longReviewUrl = data['linkUrl'] + longUrl
+        data['longLinkUrl'] = longReviewUrl
+        yield scrapy.Request(url=shortReviewUrl, callback=self.shortReview, meta={'data': data})
 
-    # 循环三级评论信息url 交给处理三级信息
-    def shortReviewFor(self, response):
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36'
-        }
+    # 三级信息->短评列表
+    def shortReview(self, response):
         data = response.meta['data']
         shortReviewBaseUrl = response.url
+        print(shortReviewBaseUrl)
         limit = 20
         start = 20
         shortReviewList = []
         while True:
+        # for i in range(1):
             url = shortReviewBaseUrl + "&start=" + str(start) + "&limit=" + str(limit)
             start = start + 20
-            res = requests.get(url=url, headers=headers).content.decode('utf8')
+            res = requests.get(url=url, headers=self.headers).content.decode('utf8')
             xpathHtml = etree.HTML(res)
-            evaluateList = xpathHtml.xpath("//div[@class='comment-item']")
-            if len(evaluateList) < 20:
+            xpathList = xpathHtml.xpath("//div[@class='comment-item']")
+            if len(xpathList) < 20:
                 break
-            for evaluate in evaluateList:
-                shortReviewMap = {}
+            for xpathResult in xpathList:
+                result = {}
                 # 评价人的姓名
-                people = evaluate.xpath(".//span[@class='comment-info']/a/text()")
+                people = xpathResult.xpath(".//span[@class='comment-info']/a/text()")
                 # 评级时间
-                time = str(evaluate.xpath(".//span[@class='comment-time ']/text()")[0]).replace("\\n", "").strip()
+                time = str(xpathResult.xpath(".//span[@class='comment-time ']/text()")[0]).replace("\\n", "").strip()
                 # 评价内容
-                content = evaluate.xpath(".//span[@class='short']/text()")
-                shortReviewMap['people'] = people
-                shortReviewMap['time'] = time
-                shortReviewMap['content'] = content
-                shortReviewList.append(shortReviewMap)
+                content = xpathResult.xpath(".//span[@class='short']/text()")
+                result['people'] = people
+                result['time'] = time
+                result['content'] = content
+                shortReviewList.append(result)
             print("url========================================================" + url)
         data['shortReviewList1111'] = shortReviewList
-        print(data)
+        longLinkUrl = data['longLinkUrl']
+        yield scrapy.Request(url=longLinkUrl, callback=self.longReview, meta={'data': data})
+
+    # 四级信息->影评列表
+    def longReview(self, response):
+        data = response.meta['data']
+        longReviewUrl = response.url
+        start = 20
+        longReviewList = []
+        while True:
+        # for i in range(1):
+            url = longReviewUrl + "?start="+str(start)
+            start = start+20
+            res = requests.get(url=url, headers=self.headers).content.decode('utf8')
+            xpathHtml = etree.HTML(res)
+            xpathList = xpathHtml.xpath("//div[@class='main review-item']")
+            if len(xpathList) < 20:
+                break
+            for xpathResult in xpathList:
+                result = {}
+                # 评价人姓名
+                name = xpathResult.xpath(".//header/a[@class='name']/text()")
+                # 评级
+                score = xpathResult.xpath(".//span[1]/@title")
+                # 评价时间
+                time = xpathResult.xpath(".//span[2]")
+                # 评价标题
+                title = xpathResult.xpath(".//div[@class='main-bd']/h2/a/text()")
+                # 评价详情链接
+                linkUrl = str(xpathResult.xpath(".//div[@class='main-bd']/h2/a/@href")[0])
+                # 评价详情
+                content = self.longReviewContentDetail(linkUrl)
+                result['name'] = name
+                result['score'] = score
+                result['time'] = time
+                result['title'] = title
+                result['linkUrl'] = linkUrl
+                result['content'] = content
+                longReviewList.append(result)
+                pass
+        data['longReviewList'] = longReviewList
         yield data
+
+    # 影评详情内容
+    def longReviewContentDetail(self, url):
+        detail = {}
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36'
+        }
+        res = requests.get(url=url, headers=headers).content.decode('utf8')
+        xpathHtml = etree.HTML(res)
+        xpathList = xpathHtml.xpath("//div[@id='link-report']")
+        detail['content'] = str(xpathList[0].xpath(".//p/text()"))
+        detail['contentImageUrl'] = xpathList[0].xpath(".//div[@class='image-wrapper']//img/@src")
+        return detail
+
