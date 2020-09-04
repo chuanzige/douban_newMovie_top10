@@ -16,7 +16,7 @@ NEWSPIDER_MODULE = 'moviedoubanSpider.spiders'
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 
 # Obey robots.txt rules
-ROBOTSTXT_OBEY = True
+ROBOTSTXT_OBEY = False
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 #CONCURRENT_REQUESTS = 32
@@ -54,8 +54,11 @@ USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36
 DOWNLOADER_MIDDLEWARES = {
    # 'moviedoubanSpider.middlewares.MoviedoubanspiderDownloaderMiddleware': 543,
     'moviedoubanSpider.UserAgentMiddleware.UserAgentMiddleware': 543,
+    'scrapy_proxies.RandomProxy': 100,
+    'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
 }
-
+PROXY_LIST = '/Users/mrwang/PycharmProjects/moviedoubanSpider/ip.txt'
+PROXY_MODE = 0
 # Enable or disable extensions
 # See https://docs.scrapy.org/en/latest/topics/extensions.html
 #EXTENSIONS = {
